@@ -1,63 +1,16 @@
-import sqlite3
+# ==========================================
+# FIND USER BY PHONE
+# ==========================================
 
-DB_NAME = "users.db"
+def find_user_by_phone(phone):
 
-
-def connect():
-    return sqlite3.connect(DB_NAME)
-
-
-def create_tables():
     conn = connect()
-    cur = conn.cursor()
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        telegram_id INTEGER UNIQUE,
-        full_name TEXT NOT NULL,
-        phone TEXT,
-        pin TEXT NOT NULL,
-        balance REAL DEFAULT 0
-    )
-    """)
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        telegram_id INTEGER,
-        transaction_type TEXT,
-        amount REAL,
-        description TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-def create_user(telegram_id, full_name, phone, pin):
-    conn = connect()
-    cur = conn.cursor()
-
-    cur.execute("""
-    INSERT INTO users
-    (telegram_id, full_name, phone, pin)
-    VALUES (?, ?, ?, ?)
-    """, (telegram_id, full_name, phone, pin))
-
-    conn.commit()
-    conn.close()
-
-
-def get_user(telegram_id):
-    conn = connect()
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT * FROM users WHERE telegram_id=?",
-        (telegram_id,)
+        "SELECT * FROM users WHERE phone=?",
+        (phone,)
     )
 
     user = cur.fetchone()
@@ -67,65 +20,78 @@ def get_user(telegram_id):
     return user
 
 
-def update_balance(telegram_id, balance):
+# ==========================================
+# TRANSFER BALANCE
+# ==========================================
+
+def transfer_balance(sender_id, receiver_id, amount):
+
     conn = connect()
+
     cur = conn.cursor()
 
-    cur.execute("""
-    UPDATE users
-    SET balance=?
-    WHERE telegram_id=?
-    """, (balance, telegram_id))
+    # Sender Balance
+
+    cur.execute(
+        "SELECT balance FROM users WHERE telegram_id=?",
+        (sender_id,)
+    )
+
+    sender = cur.fetchone()
+
+    if sender is None:
+
+        conn.close()
+
+        return False
+
+    if sender[0] < amount:
+
+        conn.close()
+
+        return False
+
+    # Receiver Balance
+
+    cur.execute(
+        "SELECT balance FROM users WHERE telegram_id=?",
+        (receiver_id,)
+    )
+
+    receiver = cur.fetchone()
+
+    if receiver is None:
+
+        conn.close()
+
+        return False
+
+    sender_balance = sender[0] - amount
+
+    receiver_balance = receiver[0] + amount
+
+    # Update Sender
+
+    cur.execute(
+        "UPDATE users SET balance=? WHERE telegram_id=?",
+        (
+            sender_balance,
+            sender_id
+        )
+    )
+
+    # Update Receiver
+
+    cur.execute(
+        "UPDATE users SET balance=? WHERE telegram_id=?",
+        (
+            receiver_balance,
+            receiver_id
+        )
+    )
 
     conn.commit()
-    conn.close()
-
-
-def add_transaction(
-    telegram_id,
-    transaction_type,
-    amount,
-    description
-):
-    conn = connect()
-    cur = conn.cursor()
-
-    cur.execute("""
-    INSERT INTO transactions
-    (telegram_id, transaction_type, amount, description)
-    VALUES (?, ?, ?, ?)
-    """, (
-        telegram_id,
-        transaction_type,
-        amount,
-        description
-    ))
-
-    conn.commit()
-    conn.close()
-
-
-def get_transactions(telegram_id):
-    conn = connect()
-    cur = conn.cursor()
-
-    cur.execute("""
-    SELECT transaction_type,
-           amount,
-           description,
-           created_at
-    FROM transactions
-    WHERE telegram_id=?
-    ORDER BY id DESC
-    """, (telegram_id,))
-
-    data = cur.fetchall()
 
     conn.close()
 
-    return data
-
-
-if __name__ == "__main__":
-    create_tables()
-    print("✅ Database created successfully.")
+    return True

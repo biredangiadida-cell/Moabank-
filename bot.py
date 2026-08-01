@@ -8,116 +8,155 @@ from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
+    ConversationHandler,
+    MessageHandler,
     ContextTypes,
+    filters,
+)
+
+from database import (
+    create_tables,
+    create_user,
+    get_user,
+    update_balance,
+    add_transaction,
+    get_transactions,
 )
 
 # ==========================
-# CONFIG
+# STATES
 # ==========================
-TOKEN = "8918296234:AAFD6mg6TXbHAmHVAfT0Eu4Jn2Fw8Q-qW_A"
+NAME, PHONE, PIN = range(3)
 
-BOT_NAME = "🏦 MoaBank"
+TOKEN = "8918296234:AAFZuKJ99TGJvN0ZWylQkjJYh5CEw6aYUgs"
 
-# ==========================
-# START
-# ==========================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+BOT_NAME = "🏦 MoaBank"if query.data == "create":
 
-    keyboard = [
-        [InlineKeyboardButton("👤 Create Account", callback_data="create")],
-        [InlineKeyboardButton("🔐 Login", callback_data="login")],
-        [InlineKeyboardButton("💰 Balance", callback_data="balance")],
-        [InlineKeyboardButton("💸 Transfer", callback_data="transfer")],
-        [InlineKeyboardButton("📥 Deposit", callback_data="deposit")],
-        [InlineKeyboardButton("📤 Withdraw", callback_data="withdraw")],
-        [InlineKeyboardButton("📜 History", callback_data="history")],
-        [InlineKeyboardButton("⚙️ Settings", callback_data="settings")],
-        [InlineKeyboardButton("☎️ Support", callback_data="support")],
-    ]
+    user = get_user(query.from_user.id)
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    if user:
+        await query.edit_message_text(
+            "✅ Account kee duraan uumameera."
+        )
+        return
 
-    await update.message.reply_text(
-        f"""
-🏦 <b>{BOT_NAME}</b>
+    context.user_data.clear()
 
-Baga nagaan dhuftan.
-
-Maal gochuu barbaaddu?
-
-👇 Button keessaa tokko filadhu.
-""",
-        parse_mode="HTML",
-        reply_markup=reply_markup,
+    await query.message.reply_text(
+        "👤 Maqaa guutuu kee ergi."
     )
 
-# ==========================
-# BUTTONS
-# ==========================
-async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["step"] = "name"async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    query = update.callback_query
-    await query.answer()
+    if "step" not in context.user_data:
+        return
 
-    if query.data == "create":
-        await query.edit_message_text(
-            "👤 Account uumuu jalqabne."
+    step = context.user_data["step"]
+
+    if step == "name":
+
+        context.user_data["name"] = update.message.text
+
+        context.user_data["step"] = "phone"
+
+        await update.message.reply_text(
+            "📱 Lakkoofsa bilbilaa kee ergi."
         )
 
-    elif query.data == "login":
-        await query.edit_message_text(
-            "🔐 PIN kee galchi."
+        return
+
+    if step == "phone":
+
+        context.user_data["phone"] = update.message.text
+
+        context.user_data["step"] = "pin"
+
+        await update.message.reply_text(
+            "🔐 PIN (lakkoofsa 4) galchi."
         )
 
-    elif query.data == "balance":
-        await query.edit_message_text(
-            "💰 Balance kee yeroo ammaatti: ETB 0.00"
+        return
+
+    if step == "pin":
+
+        pin = update.message.text
+
+        if not pin.isdigit() or len(pin) != 4:
+
+            await update.message.reply_text(
+                "❌ PIN lakkoofsa 4 qofa ta'uu qaba."
+            )
+
+            return
+
+        create_user(
+            update.effective_user.id,
+            context.user_data["name"],
+            context.user_data["phone"],
+            pin,
         )
 
-    elif query.data == "transfer":
+        context.user_data.clear()
+
+        await update.message.reply_text(
+            "✅ Account MoaBank kee milkaa'inaan uumameera."
+        )elif query.data == "login":
+
+    user = get_user(query.from_user.id)
+
+    if not user:
         await query.edit_message_text(
-            "💸 Transfer service."
+            "❌ Dura account uumi."
         )
+        return
 
-    elif query.data == "deposit":
+    context.user_data["step"] = "login"
+
+    await query.message.reply_text(
+        "🔐 PIN kee galchi."
+    )if step == "login":
+
+    user = get_user(update.effective_user.id)
+
+    if not user:
+        await update.message.reply_text(
+            "❌ Account hin argamne."
+        )
+        context.user_data.clear()
+        return
+
+    pin = update.message.text
+
+    if pin != user[4]:
+        await update.message.reply_text(
+            "❌ PIN sirrii miti."
+        )
+        return
+
+    context.user_data.clear()
+
+    await update.message.reply_text(
+        f"""✅ Login Milkaa'e!
+
+👤 {user[2]}
+💰 Balance: ETB {user[5]:.2f}
+"""
+    )elif query.data == "balance":
+
+    user = get_user(query.from_user.id)
+
+    if not user:
         await query.edit_message_text(
-            "📥 Deposit service."
+            "❌ Account hin qabdu."
         )
+        return
 
-    elif query.data == "withdraw":
-        await query.edit_message_text(
-            "📤 Withdrawal service."
-        )
+    await query.edit_message_text(
+        f"""🏦 MoaBank
 
-    elif query.data == "history":
-        await query.edit_message_text(
-            "📜 Transaction history."
-        )
+👤 {user[2]}
 
-    elif query.data == "settings":
-        await query.edit_message_text(
-            "⚙️ Settings."
-        )
-
-    elif query.data == "support":
-        await query.edit_message_text(
-            "☎️ Customer Support."
-        )
-
-# ==========================
-# MAIN
-# ==========================
-def main():
-
-    app = Application.builder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(buttons))
-
-    print("🏦 MoaBank Started...")
-
-    app.run_polling()
-
-
-if __name__ == "__main__":
-    main()
+💰 Balance
+ETB {user[5]:.2f}
+"""
+    )

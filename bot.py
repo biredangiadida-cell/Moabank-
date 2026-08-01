@@ -14,7 +14,7 @@ from telegram.ext import (
 # ==========================
 # CONFIG
 # ==========================
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8918296234:AAFD6mg6TXbHAmHVAfT0Eu4Jn2Fw8Q-qW_A"
 
 BOT_NAME = "🏦 MoaBank"
 

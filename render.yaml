@@ -1,0 +1,15 @@
+services:
+  - type: worker
+    name: moabank-bot
+    runtime: python
+    plan: free
+
+    buildCommand: pip install -r requirements.txt
+
+    startCommand: python bot.py
+
+    autoDeploy: true
+
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
